@@ -175,14 +175,14 @@ contract Coordinator is Context, Ownable, IBEP1363Spender {
     /**
      * @dev Check if `addr` is an oracle.
      */
-    function isAdmin(address addr) external view returns (bool) {
+    function isOracle(address addr) external view returns (bool) {
         return _oracleAddrs[addr];
     }
 
     /**
-     * @dev Set `addr` is excluded from reflections to `state`.
+     * @dev Set if `addr` is an oracle.
      */
-    function setIsAdmin(address addr, bool state) external onlyOwner {
+    function setIsOracle(address addr, bool state) external onlyOwner {
         _oracleAddrs[addr] = state;
     }
 
