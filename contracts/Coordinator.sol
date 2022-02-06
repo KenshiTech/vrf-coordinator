@@ -161,6 +161,14 @@ contract Coordinator is Context, Ownable, IBEP1363Spender {
         _collectorAddr = collector;
     }
 
+    function getKenshiAddr() external view returns (address) {
+        return _kenshiAddr;
+    }
+
+    function setKenshiAddr(address kenshiAddr) external onlyOwner {
+        _kenshiAddr = kenshiAddr;
+    }
+
     /**
      * @dev Throws if called by any account other than the oracles.
      */
