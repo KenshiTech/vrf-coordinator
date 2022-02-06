@@ -240,6 +240,7 @@ contract Coordinator is Context, Ownable, IBEP1363Spender {
             vComponents,
             requestId
         );
+        _fulfilled[requester][requestId] = true;
         uint256 gasSpent = gasAtStart - gasleft();
         uint256 gasPriceInKenshi = gasSpent * kenshisPerWei;
         uint256 totalPrice = gasPriceInKenshi +
