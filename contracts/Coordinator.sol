@@ -130,20 +130,12 @@ contract Coordinator is Context, Ownable, IBEP1363Spender {
     mapping(address => mapping(uint256 => bool)) private _fulfilled;
     mapping(address => bool) private _oracleAddrs;
 
-    uint256 private _price;
     uint256 private _minApproval;
     address private _kenshiAddr;
+    address private _vrfUtilsAddr;
     address private _collectorAddr;
 
     constructor() {}
-
-    function getPrice() external view returns (uint256) {
-        return _price;
-    }
-
-    function setPrice(uint256 price) external onlyOwner {
-        _price = price;
-    }
 
     function getMinApproval() external view returns (uint256) {
         return _minApproval;
@@ -167,6 +159,14 @@ contract Coordinator is Context, Ownable, IBEP1363Spender {
 
     function setKenshiAddr(address kenshiAddr) external onlyOwner {
         _kenshiAddr = kenshiAddr;
+    }
+
+    function getVrfUtilsAddr() external view returns (address) {
+        return _vrfUtilsAddr;
+    }
+
+    function setVrfUtilsAddr(address vrfUtilsAddr) external onlyOwner {
+        _vrfUtilsAddr = vrfUtilsAddr;
     }
 
     /**
@@ -225,13 +225,13 @@ contract Coordinator is Context, Ownable, IBEP1363Spender {
         bytes memory message,
         uint256[2] memory uPoint,
         uint256[4] memory vComponents,
-        uint256 kenshisPerWei
+        uint256 kenshisToCharge
     ) external onlyOracles {
-        uint256 gasAtStart = gasleft();
         require(
             !_fulfilled[requester][requestId],
             "Coordinator: Already fulfilled"
         );
+
         IVRFConsumer consumer = IVRFConsumer(requester);
         consumer.onRandomnessReady(
             proof,
@@ -240,17 +240,14 @@ contract Coordinator is Context, Ownable, IBEP1363Spender {
             vComponents,
             requestId
         );
+
         _fulfilled[requester][requestId] = true;
-        uint256 gasSpent = gasAtStart - gasleft();
-        uint256 gasPriceInKenshi = gasSpent * kenshisPerWei;
-        uint256 totalPrice = gasPriceInKenshi +
-            ((gasPriceInKenshi * 10) / 100) +
-            _price;
-        bool transferred = IToken(_kenshiAddr).transferFrom(
-            requester,
-            _collectorAddr,
-            totalPrice
-        );
+
+        bool transferred = charge(requester, kenshisToCharge);
         require(transferred, "Coordinator: Transfer from failed");
+    }
+
+    function charge(address from, uint256 amount) internal returns (bool) {
+        return IToken(_kenshiAddr).transferFrom(from, _collectorAddr, amount);
     }
 }
