@@ -1,20 +1,6 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.11;
 
-import "./interfaces/IBEP1363Spender.sol";
-
-/**
- * Note: no need to import the entire IBEP20 when these are the only
- * functions we need.
- */
-interface IToken {
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
-}
-
 /**
  * Note: no need to import the entire IBEP20 when these are the only
  * functions we need.
@@ -126,40 +112,14 @@ contract Ownable is Context {
     }
 }
 
-contract Coordinator is Context, Ownable, IBEP1363Spender {
+contract Coordinator is Context, Ownable {
     mapping(address => mapping(uint256 => bool)) private _fulfilled;
+    mapping(address => uint256) _requestIds;
     mapping(address => bool) private _oracleAddrs;
 
-    uint256 private _minApproval;
-    address private _kenshiAddr;
     address private _vrfUtilsAddr;
-    address private _collectorAddr;
 
     constructor() {}
-
-    function getMinApproval() external view returns (uint256) {
-        return _minApproval;
-    }
-
-    function setMinApproval(uint256 min) external onlyOwner {
-        _minApproval = min;
-    }
-
-    function getCollectorAddr() external view returns (address) {
-        return _collectorAddr;
-    }
-
-    function setCollectorAddr(address collector) external onlyOwner {
-        _collectorAddr = collector;
-    }
-
-    function getKenshiAddr() external view returns (address) {
-        return _kenshiAddr;
-    }
-
-    function setKenshiAddr(address kenshiAddr) external onlyOwner {
-        _kenshiAddr = kenshiAddr;
-    }
 
     function getVrfUtilsAddr() external view returns (address) {
         return _vrfUtilsAddr;
@@ -196,26 +156,10 @@ contract Coordinator is Context, Ownable, IBEP1363Spender {
 
     event RandomnessRequested(address requester, uint256 requestId);
 
-    function onApprovalReceived(
-        address owner,
-        uint256 value,
-        bytes memory data
-    ) external returns (bytes4) {
-        require(
-            _msgSender() == address(_kenshiAddr),
-            "Coordinator: Message sender is not the Kenshi token"
-        );
-
-        require(
-            value >= _minApproval,
-            "Coordinator: Transferred amount is lower than the current price"
-        );
-
-        uint256 requestId = abi.decode(data, (uint256));
-
-        emit RandomnessRequested(owner, requestId);
-
-        return IBEP1363Spender(this).onApprovalReceived.selector;
+    function requestRandomness() external returns (uint256) {
+        uint256 requestId = _requestIds[_msgSender()]++;
+        emit RandomnessRequested(_msgSender(), requestId);
+        return requestId;
     }
 
     function fullfillRandomnessForContract(
@@ -224,8 +168,7 @@ contract Coordinator is Context, Ownable, IBEP1363Spender {
         uint256[4] memory proof,
         bytes memory message,
         uint256[2] memory uPoint,
-        uint256[4] memory vComponents,
-        uint256 kenshisToCharge
+        uint256[4] memory vComponents
     ) external onlyOracles {
         require(
             !_fulfilled[requester][requestId],
@@ -242,12 +185,5 @@ contract Coordinator is Context, Ownable, IBEP1363Spender {
         );
 
         _fulfilled[requester][requestId] = true;
-
-        bool transferred = charge(requester, kenshisToCharge);
-        require(transferred, "Coordinator: Transfer from failed");
-    }
-
-    function charge(address from, uint256 amount) internal returns (bool) {
-        return IToken(_kenshiAddr).transferFrom(from, _collectorAddr, amount);
     }
 }
